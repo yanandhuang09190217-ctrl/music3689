@@ -3,21 +3,6 @@ import asyncio
 import discord
 from discord.ext import commands
 import wavelink
-from flask import Flask
-from threading import Thread
-
-# ============================
-# Flask 讓 Render 保持運行
-# ============================
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Music Bot is running!"
-
-def run_web():
-    port = int(os.getenv("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
 
 # ============================
 # Discord Bot 設定
@@ -109,5 +94,4 @@ async def leave(ctx):
 # 啟動
 # ============================
 if __name__ == "__main__":
-    Thread(target=run_web).start()
     bot.run(TOKEN)
