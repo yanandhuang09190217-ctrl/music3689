@@ -1,3 +1,4 @@
-discord.py
-wavelink==3.2.0
-flask
+discord.py==2.3.2
+Flask==3.0.2
+wavelink==3.4.1
+aiohttp==3.9.5
