@@ -3,8 +3,21 @@ from discord.ext import commands
 import wavelink
 import asyncio
 import os
+from flask import Flask
+import threading
 
-# 讀取 Render 的環境變數 TOKEN
+# ---- Flask Web Server ----
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is running!"
+
+def run_web():
+    port = int(os.getenv("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+# ---- Discord Bot ----
 TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
@@ -17,7 +30,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"✅ 已登入：{bot.user}")
 
-    # 只在沒有節點時建立連線
     if not wavelink.Pool.nodes:
         await wavelink.Pool.connect(
             client=bot,
@@ -38,7 +50,6 @@ async def play(ctx):
 
     channel = ctx.author.voice.channel
 
-    # 拿取 voice client
     vc: wavelink.Player = ctx.voice_client
 
     if not vc:
@@ -48,7 +59,6 @@ async def play(ctx):
     if not isinstance(vc, wavelink.Player):
         return await ctx.reply("❗ 音樂播放器尚未準備好，請重試。")
 
-    # 問使用者要播什麼
     ask = await ctx.send("🎵 要播放什麼？請輸入網址或關鍵字（60 秒內）。")
 
     def check(m):
@@ -57,7 +67,6 @@ async def play(ctx):
     try:
         msg = await bot.wait_for("message", check=check, timeout=60)
         query = msg.content.strip()
-
         await ask.delete()
         try:
             await msg.delete()
@@ -82,11 +91,6 @@ async def play(ctx):
 
     await ctx.send(f"▶ 正在播放：**{track.title}**")
 
-    try:
-        await ctx.author.send(f"🎧 正在為你播放：**{track.title}**")
-    except:
-        pass
-
 
 @bot.command()
 async def leave(ctx):
@@ -98,7 +102,8 @@ async def leave(ctx):
         return await ctx.send("⚠️ 我不在語音頻道中。")
 
 
-# -------------------------------------------------------
-# ❗ 最重要的修正：你的 NameError 就是因為這行錯了
-# -------------------------------------------------------
+# 啟動 Flask
+threading.Thread(target=run_web).start()
+
+# 啟動 bot
 bot.run(TOKEN)
