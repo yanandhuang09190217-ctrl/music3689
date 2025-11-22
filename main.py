@@ -4,31 +4,35 @@ import wavelink
 import asyncio
 import os
 from flask import Flask
-import threading
+from threading import Thread
 
-# ---- Flask Web Server ----
+# ====== Web server for Render ======
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Bot is running!"
+    return "Bot is running!", 200
 
 def run_web():
-    port = int(os.getenv("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
-# ---- Discord Bot ----
+def keep_alive():
+    t = Thread(target=run_web)
+    t.start()
+
+# ====== Discord Bot ======
 TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
+intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-
 @bot.event
 async def on_ready():
-    print(f"✅ 已登入：{bot.user}")
+    print(f"Bot 已登入：{bot.user}")
 
     if not wavelink.Pool.nodes:
         await wavelink.Pool.connect(
@@ -40,7 +44,7 @@ async def on_ready():
                 )
             ]
         )
-        print("🔗 Lavalink 已連線")
+        print("Lavalink 已連線")
 
 
 @bot.command()
@@ -49,17 +53,13 @@ async def play(ctx):
         return await ctx.reply("⚠️ 你必須先加入語音頻道！")
 
     channel = ctx.author.voice.channel
-
     vc: wavelink.Player = ctx.voice_client
 
     if not vc:
         vc = await channel.connect(cls=wavelink.Player)
         await asyncio.sleep(0.5)
 
-    if not isinstance(vc, wavelink.Player):
-        return await ctx.reply("❗ 音樂播放器尚未準備好，請重試。")
-
-    ask = await ctx.send("🎵 要播放什麼？請輸入網址或關鍵字（60 秒內）。")
+    ask = await ctx.send("🎵 要播放什麼音樂？請輸入網址或關鍵字（60 秒內）。")
 
     def check(m):
         return m.author == ctx.author and m.channel == ctx.channel
@@ -72,23 +72,14 @@ async def play(ctx):
             await msg.delete()
         except:
             pass
-
     except asyncio.TimeoutError:
         return await ctx.send("⏳ 超時未輸入，取消播放。")
 
-    try:
-        track = await wavelink.YouTubeTrack.search(query=query, return_first=True)
-    except Exception as e:
-        return await ctx.send(f"❌ 搜尋錯誤：{e}")
-
+    track = await wavelink.YouTubeTrack.search(query=query, return_first=True)
     if not track:
         return await ctx.send("❌ 找不到歌曲。")
 
-    try:
-        await vc.play(track)
-    except Exception as e:
-        return await ctx.send(f"❌ 播放失敗：{e}")
-
+    await vc.play(track)
     await ctx.send(f"▶ 正在播放：**{track.title}**")
 
 
@@ -99,11 +90,9 @@ async def leave(ctx):
         await vc.disconnect()
         return await ctx.send("👋 已離開語音頻道")
     else:
-        return await ctx.send("⚠️ 我不在語音頻道中。")
+        return await ctx.send("⚠️ 我不在語音頻道內。")
 
 
-# 啟動 Flask
-threading.Thread(target=run_web).start()
-
-# 啟動 bot
+# ====== Start web + bot ======
+keep_alive()
 bot.run(TOKEN)
