@@ -4,7 +4,8 @@ import wavelink
 import asyncio
 import os
 
-TOKEN = os.getenv("TOKEN")  # 讀取 Render 內建環境變數
+# 讀取 Render 的環境變數 TOKEN
+TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -16,6 +17,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"✅ 已登入：{bot.user}")
 
+    # 只在沒有節點時建立連線
     if not wavelink.Pool.nodes:
         await wavelink.Pool.connect(
             client=bot,
@@ -36,6 +38,7 @@ async def play(ctx):
 
     channel = ctx.author.voice.channel
 
+    # 拿取 voice client
     vc: wavelink.Player = ctx.voice_client
 
     if not vc:
@@ -45,6 +48,7 @@ async def play(ctx):
     if not isinstance(vc, wavelink.Player):
         return await ctx.reply("❗ 音樂播放器尚未準備好，請重試。")
 
+    # 問使用者要播什麼
     ask = await ctx.send("🎵 要播放什麼？請輸入網址或關鍵字（60 秒內）。")
 
     def check(m):
@@ -53,11 +57,13 @@ async def play(ctx):
     try:
         msg = await bot.wait_for("message", check=check, timeout=60)
         query = msg.content.strip()
+
         await ask.delete()
         try:
             await msg.delete()
         except:
             pass
+
     except asyncio.TimeoutError:
         return await ctx.send("⏳ 超時未輸入，取消播放。")
 
@@ -92,4 +98,7 @@ async def leave(ctx):
         return await ctx.send("⚠️ 我不在語音頻道中。")
 
 
-bot.run(DISCORD_TOKEN)
+# -------------------------------------------------------
+# ❗ 最重要的修正：你的 NameError 就是因為這行錯了
+# -------------------------------------------------------
+bot.run(TOKEN)
